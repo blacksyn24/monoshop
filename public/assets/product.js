@@ -4,7 +4,7 @@
   var slug = (location.pathname.match(/^\/p\/([a-z0-9-]+)/) || [])[1] || new URLSearchParams(location.search).get('p');
 
   var ERRORS = {
-    champs_invalides: 'Merci de remplir votre nom, un numéro de téléphone valide et votre ville.',
+    champs_invalides: 'Merci de remplir tous les champs obligatoires (*) avec un numéro de téléphone valide.',
     trop_de_commandes: 'Trop de commandes en peu de temps. Réessayez dans quelques minutes.',
     produit_introuvable: 'Ce produit n’est plus disponible.',
   };
@@ -55,6 +55,34 @@
     }).join('');
 
     var wa = S.waNumber(s.whatsapp);
+    var svc = p.kind === 'service';
+    if (svc) document.getElementById('topbar').textContent = '🎓 Vous payez seulement à la livraison de votre présentation';
+
+    var trust = svc
+      ? '<div><span>💵</span>Payé à la livraison</div><div><span>⚡</span>Livré en 72 h</div><div><span>✏️</span>Retouches incluses</div>'
+      : '<div><span>💵</span>Paiement à la livraison</div><div><span>🚚</span>Livraison rapide</div><div><span>📞</span>Service client</div>';
+
+    var fields = svc
+      ? '<div class="f"><label for="n">Nom complet *</label><input id="n" name="name" required maxlength="80" autocomplete="name"></div>' +
+        '<div class="f"><label for="t">Numéro WhatsApp *</label><input id="t" name="phone" type="tel" required maxlength="20" inputmode="tel" autocomplete="tel"></div>' +
+        '<div class="f"><label for="ec">École / Université *</label><input id="ec" name="ecole" required maxlength="120"></div>' +
+        '<div class="f"><label for="nv">Niveau *</label><select id="nv" name="niveau" required><option value="">Choisir…</option><option>BTS</option><option>Licence</option><option>Master</option><option>Doctorat</option><option>Rapport de stage</option><option>Autre</option></select></div>' +
+        '<div class="f"><label for="th">Thème du mémoire *</label><input id="th" name="theme" required maxlength="200"></div>' +
+        '<div class="f"><label for="sd">Date de soutenance</label><input id="sd" name="soutenance" type="date"></div>' +
+        '<div class="f"><label for="v">Ville *</label><input id="v" name="city" required maxlength="60" autocomplete="address-level2"></div>' +
+        '<input type="hidden" name="address" value="">'
+      : '<div class="f"><label for="n">Nom complet *</label><input id="n" name="name" required maxlength="80" autocomplete="name"></div>' +
+        '<div class="f"><label for="t">Téléphone (WhatsApp) *</label><input id="t" name="phone" type="tel" required maxlength="20" inputmode="tel" autocomplete="tel"></div>' +
+        '<div class="f"><label for="v">Ville *</label><input id="v" name="city" required maxlength="60" autocomplete="address-level2"></div>' +
+        '<div class="f"><label for="a">Quartier / adresse de livraison</label><input id="a" name="address" maxlength="160" autocomplete="street-address"></div>';
+
+    var steps = svc
+      ? '<div><b>1</b><br><strong>Vous commandez</strong><br>Choisissez votre formule en 1 minute.</div>' +
+        '<div><b>2</b><br><strong>Envoyez votre mémoire</strong><br>Sur WhatsApp, avec votre numéro de commande.</div>' +
+        '<div><b>3</b><br><strong>Recevez et payez</strong><br>Vous validez l’aperçu, vous payez, vous recevez le fichier final.</div>'
+      : '<div><b>1</b><br><strong>Vous commandez</strong><br>Remplissez le formulaire en 30 secondes.</div>' +
+        '<div><b>2</b><br><strong>On vous appelle</strong><br>Nous confirmons votre commande et l’adresse.</div>' +
+        '<div><b>3</b><br><strong>Vous payez à la réception</strong><br>Payez en espèces quand vous recevez le colis.</div>';
 
     app.innerHTML =
       '<div class="hero"><div>' + gallery + '</div><div>' +
@@ -62,30 +90,23 @@
         '<p class="headline">' + esc(p.headline) + '</p>' +
         '<p class="sub">' + esc(p.subheadline) + '</p>' +
         '<div class="price"><b>' + money(first.price, cur) + '</b>' + (p.compare_price > first.price ? '<s>' + money(p.compare_price, cur) + '</s>' : '') + (save ? '<span class="save">-' + save + '%</span>' : '') + '</div>' +
-        '<div class="trust"><div><span>💵</span>Paiement à la livraison</div><div><span>🚚</span>Livraison rapide</div><div><span>📞</span>Service client</div></div>' +
+        '<div class="trust">' + trust + '</div>' +
         '<form class="card" id="commander" novalidate>' +
-          '<h2>Commander maintenant</h2><p class="hint">Remplissez le formulaire, nous vous appelons pour confirmer.</p>' + offerCards +
-          '<div class="f"><label for="n">Nom complet *</label><input id="n" name="name" required maxlength="80" autocomplete="name"></div>' +
-          '<div class="f"><label for="t">Téléphone (WhatsApp) *</label><input id="t" name="phone" type="tel" required maxlength="20" inputmode="tel" autocomplete="tel"></div>' +
-          '<div class="f"><label for="v">Ville *</label><input id="v" name="city" required maxlength="60" autocomplete="address-level2"></div>' +
-          '<div class="f"><label for="a">Quartier / adresse de livraison</label><input id="a" name="address" maxlength="160" autocomplete="street-address"></div>' +
+          '<h2>Commander maintenant</h2><p class="hint">' + (svc ? 'Remplissez le formulaire, puis envoyez votre mémoire sur WhatsApp.' : 'Remplissez le formulaire, nous vous appelons pour confirmer.') + '</p>' + offerCards +
+          fields +
           '<div class="f"><label for="nt">Note (facultatif)</label><textarea id="nt" name="note" rows="2" maxlength="300"></textarea></div>' +
           '<input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">' +
           '<div id="ferr"></div>' +
           '<div class="total"><span>Total à payer à la livraison</span><span id="tot">' + money(offers[defIdx].price, cur) + '</span></div>' +
           '<button class="btn" type="submit" id="sub">✅ Je commande — paiement à la livraison</button>' +
-          '<p class="cod">🔒 Aucun paiement en ligne. Vous payez en espèces à la réception.</p>' +
+          '<p class="cod">🔒 ' + (svc ? 'Aucun paiement à l’avance. Vous payez après avoir validé l’aperçu de votre présentation.' : 'Aucun paiement en ligne. Vous payez en espèces à la réception.') + '</p>' +
         '</form>' +
       '</div></div>' +
       (p.video_url ? '<section class="block"><video src="' + esc(p.video_url) + '" controls playsinline preload="metadata"></video></section>' : '') +
       ((p.benefits || []).length ? '<section class="block"><h2>Pourquoi vous allez l’adorer</h2><ul class="benefits">' + p.benefits.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></section>' : '') +
       (p.description ? '<section class="block desc"><h2>Description</h2>' + p.description.split(/\n\s*\n/).map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') + '</section>' : '') +
       (images.length > 1 ? '<section class="block gallery">' + images.slice(1).map(function (u) { return '<img src="' + esc(u) + '" alt="" loading="lazy">'; }).join('') + '</section>' : '') +
-      '<section class="block"><h2>Comment ça marche ?</h2><div class="steps">' +
-        '<div><b>1</b><br><strong>Vous commandez</strong><br>Remplissez le formulaire en 30 secondes.</div>' +
-        '<div><b>2</b><br><strong>On vous appelle</strong><br>Nous confirmons votre commande et l’adresse.</div>' +
-        '<div><b>3</b><br><strong>Vous payez à la réception</strong><br>Payez en espèces quand vous recevez le colis.</div>' +
-      '</div></section>' +
+      '<section class="block"><h2>Comment ça marche ?</h2><div class="steps">' + steps + '</div></section>' +
       ((p.faq || []).length ? '<section class="block"><h2>Questions fréquentes</h2>' + p.faq.map(function (f) { return '<details><summary>' + esc(f.q) + '</summary><p>' + esc(f.a) + '</p></details>'; }).join('') + '</section>' : '') +
       '<section class="block"><a class="btn" href="#commander">Commander maintenant</a></section>' +
       '<div class="sticky" id="sticky"><a class="btn" href="#commander">Commander — ' + money(offers[defIdx].price, cur) + '</a></div>' +
@@ -120,14 +141,15 @@
       ferr.innerHTML = '';
       if (f.website.value) return; // robot
       var name = f.name.value.trim(), phone = f.phone.value.trim(), city = f.city.value.trim();
-      if (!name || !city || phone.replace(/\D/g, '').length < 8) {
+      var extra = svc ? { ecole: f.ecole.value.trim(), niveau: f.niveau.value, theme: f.theme.value.trim(), soutenance: f.soutenance.value } : {};
+      if (!name || !city || phone.replace(/\D/g, '').length < 8 || (svc && (!extra.ecole || !extra.niveau || !extra.theme))) {
         ferr.innerHTML = '<div class="err">' + ERRORS.champs_invalides + '</div>';
         return;
       }
       btn.disabled = true; btn.textContent = 'Envoi en cours…';
       S.api('rpc/place_order', {
         method: 'POST',
-        body: { p_slug: p.slug, p_offer: +form.querySelector('input[name=offer]:checked').value, p_name: name, p_phone: phone, p_city: city, p_address: f.address.value, p_note: f.note.value },
+        body: { p_slug: p.slug, p_offer: +form.querySelector('input[name=offer]:checked').value, p_name: name, p_phone: phone, p_city: city, p_address: f.address.value, p_note: f.note.value, p_extra: extra },
       }).then(function (r) {
         location.href = '/merci?id=' + r.id + '&t=' + r.token;
       }).catch(function (e) {

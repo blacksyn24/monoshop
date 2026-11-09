@@ -25,7 +25,15 @@
     if (!o) { box.innerHTML = '<h1>Commande introuvable</h1><p><a href="/">Retour à la boutique</a></p>'; return; }
     document.documentElement.style.setProperty('--accent', o.accent);
     var wa = S.waNumber(s.whatsapp);
-    box.innerHTML =
+    if (o.kind === 'service') {
+      box.innerHTML =
+        '<div style="font-size:56px">🎓</div>' +
+        '<h1>Merci ' + esc(o.first_name) + ' !</h1>' +
+        '<p>Votre commande <b>#' + o.id + '</b> est bien enregistrée.</p>' +
+        '<div class="recap"><div><span>Service</span><b>' + esc(o.product_name) + '</b></div><div><span>Formule</span><b>' + esc(o.offer_label) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
+        '<p><b>Étape suivante : envoyez-nous votre mémoire (Word ou PDF) sur WhatsApp</b> en indiquant votre numéro de commande <b>#' + o.id + '</b>.</p>' +
+        (wa ? '<a class="btn" style="background:#25d366;box-shadow:none" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Bonjour, voici mon mémoire pour la commande #' + o.id + ' (' + o.offer_label + ').') + '">📎 Envoyer mon mémoire sur WhatsApp</a>' : '<p>Nous vous contactons très vite sur WhatsApp au <b>' + esc(o.phone) + '</b>.</p>');
+    } else box.innerHTML =
       '<div style="font-size:56px">🎉</div>' +
       '<h1>Merci ' + esc(o.first_name) + ' !</h1>' +
       '<p>Votre commande <b>#' + o.id + '</b> est bien enregistrée.<br><b>Nous allons vous appeler très bientôt</b> au <b>' + esc(o.phone) + '</b> pour confirmer la livraison.</p>' +

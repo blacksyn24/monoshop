@@ -22,7 +22,7 @@ const money = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?
 const slugify = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'produit';
 const fmtDate = (d) => new Date(d).toLocaleString('fr-FR', { timeZone: TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-const state = { settings: {}, products: [], orders: [], filters: { periode: '30', produit: '', statut: '', q: '' }, lastId: 0, unseen: 0 };
+const state = { settings: {}, products: [], orders: [], filters: { periode: '30', produit: '', statut: '', q: '', tri: 'recentes' }, lastId: 0, unseen: 0 };
 
 function flash(msg, err) {
   const el = document.createElement('div');
@@ -175,6 +175,15 @@ async function route() {
 }
 
 // ---------------- Commandes ----------------
+function soutenanceInfo(o) {
+  const d = o.extra && o.extra.soutenance;
+  if (!d) return '';
+  const days = Math.round((new Date(d + 'T00:00:00Z') - new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z')) / 864e5);
+  const label = days < 0 ? 'passée' : days === 0 ? "aujourd'hui" : days === 1 ? 'demain' : `dans ${days} j`;
+  const color = days <= 3 ? '#dc2626' : days <= 7 ? '#d97706' : '#16a34a';
+  return `<div style="color:${color};font-weight:700">🎓 Soutenance ${new Date(d + 'T00:00:00Z').toLocaleDateString('fr-FR', { timeZone: 'UTC' })} (${label})</div>`;
+}
+
 function computeStats(orders) {
   const by = Object.fromEntries(STATUSES.map((s) => [s.key, { n: 0, sum: 0 }]));
   orders.forEach((o) => { by[o.status].n++; by[o.status].sum += o.total; });
@@ -193,8 +202,10 @@ function computeStats(orders) {
 
 function filteredOrders() {
   const f = state.filters, q = f.q.trim().toLowerCase().replace(/^#/, '');
-  return state.orders.filter((o) => (!f.statut || o.status === f.statut) &&
-    (!q || String(o.id) === q || [o.customer_name, o.phone, o.city, o.address].some((v) => String(v).toLowerCase().includes(q))));
+  const list = state.orders.filter((o) => (!f.statut || o.status === f.statut) &&
+    (!q || String(o.id) === q || [o.customer_name, o.phone, o.city, o.address, o.extra?.ecole, o.extra?.theme].some((v) => String(v ?? '').toLowerCase().includes(q))));
+  if (f.tri === 'soutenance') list.sort((a, b) => (a.extra?.soutenance || '9999') .localeCompare(b.extra?.soutenance || '9999'));
+  return list;
 }
 
 function renderOrders() {
@@ -206,12 +217,16 @@ function renderOrders() {
 
   const rows = list.map((o) => {
     const s = statusOf(o.status);
-    const waMsg = encodeURIComponent(`Bonjour ${o.customer_name.split(' ')[0]}, c'est ${state.settings.store_name}. Nous avons bien reçu votre commande #${o.id} : ${o.offer_label} (${money(o.total)}), livraison à ${o.city}. Pouvez-vous confirmer ? Merci 🙏`);
+    const ex = o.extra || {};
+    const isSvc = !!(ex.ecole || ex.theme);
+    const waMsg = encodeURIComponent(isSvc
+      ? `Bonjour ${o.customer_name.split(' ')[0]}, c'est ${state.settings.store_name}. Nous avons bien reçu votre commande #${o.id} : ${o.offer_label} (${money(o.total)}). Pouvez-vous nous envoyer votre mémoire (Word ou PDF) ici ? Merci 🙏`
+      : `Bonjour ${o.customer_name.split(' ')[0]}, c'est ${state.settings.store_name}. Nous avons bien reçu votre commande #${o.id} : ${o.offer_label} (${money(o.total)}), livraison à ${o.city}. Pouvez-vous confirmer ? Merci 🙏`);
     return `<tr class="${o.status === 'nouvelle' ? 'new' : ''}">
       <td data-l="Commande"><b>#${o.id}</b><div class="muted">${fmtDate(o.created_at)}</div></td>
       <td data-l="Client"><b>${esc(o.customer_name)}</b><div class="acts"><a href="tel:${esc(o.phone)}">📞 ${esc(o.phone)}</a><a href="https://wa.me/${esc(intlPhone(o.phone))}?text=${waMsg}" target="_blank" rel="noopener">💬 WhatsApp</a></div></td>
       <td data-l="Livraison">${esc(o.city)}<div class="muted">${esc(o.address)}</div>${o.note ? `<div class="muted">📝 ${esc(o.note)}</div>` : ''}</td>
-      <td data-l="Produit">${esc(o.product_name)}<div class="muted">${esc(o.offer_label)}</div></td>
+      <td data-l="Produit">${esc(o.product_name)}<div class="muted">${esc(o.offer_label)}</div>${isSvc ? `<div class="muted">🏫 ${esc(ex.ecole || '')}${ex.niveau ? ' · ' + esc(ex.niveau) : ''}</div><div class="muted">📘 ${esc(ex.theme || '')}</div>` : ''}${soutenanceInfo(o)}</td>
       <td data-l="Total"><b>${money(o.total)}</b></td>
       <td data-l="Statut"><select class="st" data-id="${o.id}" style="color:${s.color}">${STATUSES.map((x) => opt(x.key, o.status, x.label)).join('')}</select></td>
     </tr>`;
@@ -224,6 +239,7 @@ function renderOrders() {
       <select id="fp">${opt('today', f.periode, "Aujourd'hui")}${opt('7', f.periode, '7 derniers jours')}${opt('30', f.periode, '30 derniers jours')}${opt('', f.periode, 'Toute la période')}</select>
       <select id="fpr">${opt('', f.produit, 'Tous les produits')}${state.products.map((p) => opt(p.id, f.produit, p.name)).join('')}</select>
       <select id="fs">${opt('', f.statut, 'Tous les statuts')}${STATUSES.map((s) => opt(s.key, f.statut, s.label)).join('')}</select>
+      <select id="ft">${opt('recentes', f.tri, 'Plus récentes')}${opt('soutenance', f.tri, 'Soutenance la plus proche')}</select>
       <input id="fq" value="${esc(f.q)}" placeholder="Nom, téléphone, ville…" type="search">
       <span style="flex:1"></span>
       <button class="b light" id="refresh">↻ Actualiser</button>
@@ -244,6 +260,7 @@ function renderOrders() {
   document.getElementById('fp').onchange = (e) => { f.periode = e.target.value; reload(); };
   document.getElementById('fpr').onchange = (e) => { f.produit = e.target.value; reload(); };
   document.getElementById('fs').onchange = (e) => { f.statut = e.target.value; renderOrders(); };
+  document.getElementById('ft').onchange = (e) => { f.tri = e.target.value; renderOrders(); };
   let t; document.getElementById('fq').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; renderOrders(); const i = document.getElementById('fq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 300); };
   document.getElementById('refresh').onclick = reload;
   document.getElementById('csv').onclick = () => exportCsv(list);
@@ -264,8 +281,8 @@ function renderOrders() {
 
 function exportCsv(list) {
   const cell = (v) => { let t = String(v ?? ''); if (/^[=+\-@]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
-  const head = ['N°', 'Date', 'Client', 'Téléphone', 'Ville', 'Adresse', 'Produit', 'Offre', 'Quantité', 'Total', 'Statut', 'Note'];
-  const lines = list.map((o) => [o.id, new Date(o.created_at).toLocaleString('fr-FR', { timeZone: TZ }), o.customer_name, o.phone, o.city, o.address, o.product_name, o.offer_label, o.quantity, o.total, statusOf(o.status).label, o.note].map(cell).join(';'));
+  const head = ['N°', 'Date', 'Client', 'Téléphone', 'Ville', 'Adresse', 'Produit', 'Offre', 'Quantité', 'Total', 'Statut', 'Note', 'École', 'Niveau', 'Thème', 'Soutenance'];
+  const lines = list.map((o) => [o.id, new Date(o.created_at).toLocaleString('fr-FR', { timeZone: TZ }), o.customer_name, o.phone, o.city, o.address, o.product_name, o.offer_label, o.quantity, o.total, statusOf(o.status).label, o.note, o.extra?.ecole, o.extra?.niveau, o.extra?.theme, o.extra?.soutenance].map(cell).join(';'));
   const blob = new Blob(['﻿' + [head.map(cell).join(';'), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -293,7 +310,7 @@ async function renderProducts() {
 
 function renderProductForm(p) {
   const isNew = !p;
-  p = p || { name: '', slug: '', accent: '#ff5a1f', active: true, headline: '', subheadline: '', description: '', benefits: [], faq: [], images: [], video_url: '', compare_price: null,
+  p = p || { kind: 'physique', name: '', slug: '', accent: '#ff5a1f', active: true, headline: '', subheadline: '', description: '', benefits: [], faq: [], images: [], video_url: '', compare_price: null,
     offers: [{ label: '1 article', qty: 1, price: 10000, badge: '' }, { label: '2 articles', qty: 2, price: 18000, badge: 'Meilleure offre' }] };
   const offers = p.offers.map((o) => [o.label, o.qty, o.price, o.badge || ''].join(' | ')).join('\n');
   const faq = p.faq.map((x) => `${x.q} | ${x.a}`).join('\n');
@@ -309,6 +326,7 @@ function renderProductForm(p) {
       <div><label>Adresse de la page <span class="help">(lettres, chiffres, tirets)</span></label><input name="slug" value="${esc(p.slug)}" placeholder="automatique"></div>
       <div><label>Titre accrocheur</label><input name="headline" value="${esc(p.headline)}"></div>
       <div><label>Couleur principale</label><input type="color" name="accent" value="${esc(p.accent)}" style="height:40px;padding:2px"></div>
+      <div><label>Type</label><select name="kind"><option value="physique" ${p.kind !== 'service' ? 'selected' : ''}>Produit physique (livraison)</option><option value="service" ${p.kind === 'service' ? 'selected' : ''}>Service étudiant (école, niveau, thème, date de soutenance)</option></select></div>
     </div><div class="fg" style="margin-top:12px">
       <div><label>Sous-titre</label><input name="subheadline" value="${esc(p.subheadline)}"></div>
       <div><label>Description <span class="help">(laissez une ligne vide entre les paragraphes)</span></label><textarea name="description" class="prose">${esc(p.description)}</textarea></div>
@@ -340,7 +358,7 @@ function renderProductForm(p) {
     const cp = parseInt(f.compare_price.value, 10);
     const row = {
       name: f.name.value.trim(), slug: slugify(f.slug.value || f.name.value), headline: f.headline.value.trim(), subheadline: f.subheadline.value.trim(),
-      description: f.description.value.trim(), accent: f.accent.value, active: f.active.checked,
+      description: f.description.value.trim(), accent: f.accent.value, active: f.active.checked, kind: f.kind.value,
       video_url: /^https?:\/\//.test(f.video_url.value.trim()) ? f.video_url.value.trim() : '',
       offers: offersArr, benefits: lines(f.benefits.value),
       faq: lines(f.faq.value).map((l) => { const i = l.indexOf('|'); return i > 0 ? { q: l.slice(0, i).trim(), a: l.slice(i + 1).trim() } : null; }).filter(Boolean),

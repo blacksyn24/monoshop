@@ -43,8 +43,8 @@ h1{font-size:clamp(24px,4.4vw,34px);line-height:1.15;margin:0 0 10px;letter-spac
 .o-label{font-weight:700}.o-price{font-weight:800;color:var(--accent)}.o-price s{color:#999;font-weight:500;margin-left:6px}
 .badge{position:absolute;top:-10px;right:12px;background:var(--accent);color:#fff;font-size:11.5px;font-weight:800;padding:2px 10px;border-radius:99px}
 .f{margin-bottom:10px}.f label{display:block;font-size:14px;font-weight:600;margin-bottom:4px}
-.f input,.f textarea{width:100%;font:inherit;font-size:16px;padding:13px 14px;border:1.5px solid #ddd;border-radius:12px;background:#fff}
-.f input:focus,.f textarea:focus{outline:none;border-color:var(--accent)}
+.f input,.f textarea,.f select{width:100%;font:inherit;font-size:16px;padding:13px 14px;border:1.5px solid #ddd;border-radius:12px;background:#fff}
+.f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:var(--accent)}
 .total{display:flex;justify-content:space-between;gap:12px;font-weight:800;font-size:18px;margin:14px 0}
 .cod{text-align:center;font-size:13px;color:#555;margin:10px 0 0}
 .err{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
