@@ -450,7 +450,7 @@ function renderPrices() {
     return `<div class="card prow" data-id="${p.id}">
       <h2 style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${esc(p.name)}</span>
         <span class="muted" style="font-weight:400">${p.active ? '🟢 En ligne' : '⚪ Hors ligne'} · <a href="/p/${esc(p.slug)}" target="_blank">Voir ↗</a></span></h2>
-      ${p.offers.map((o, i) => `<div class="pline"><span>${esc(o.label)}</span>
+      ${p.offers.map((o, i) => `<div class="pline"><span>${esc(o.label)}${i === 0 ? '<br><b style="color:#2563eb;font-size:12.5px">⬆ prix affiché en grand sur la page</b>' : ''}</span>
         <label class="pin"><input type="number" min="1" class="pp" data-i="${i}" value="${esc(o.price)}"> ${esc(state.settings.currency || '')}</label></div>`).join('')}
       <div class="pline" style="border-top:1px dashed #e4e4e7;margin-top:6px;padding-top:10px"><span class="muted">Ancien prix barré (1 unité) — facultatif, doit être plus élevé${low ? ' <b style="color:#dc2626">⚠️ actuellement trop bas, il ne s’affiche pas</b>' : ''}</span>
         <label class="pin"><input type="number" min="0" class="pc" value="${esc(p.compare_price ?? '')}" placeholder="aucun"> ${esc(state.settings.currency || '')}</label></div>
