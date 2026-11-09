@@ -33,7 +33,10 @@ function rateLimited(key, max, windowMs) {
 }
 
 // ---------- Pages publiques ----------
-app.get('/healthz', (req, res) => res.send('ok'));
+// Utilisé par le robot de surveillance (UptimeRobot) : garde le site éveillé ET la base Supabase active
+app.get('/healthz', async (req, res) => {
+  try { await db.q('SELECT 1'); res.send('ok'); } catch (e) { res.status(503).send('db down'); }
+});
 
 app.get('/', async (req, res, next) => {
   try {
