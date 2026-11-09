@@ -312,7 +312,12 @@ function renderProductForm(p) {
   const isNew = !p;
   p = p || { kind: 'physique', name: '', slug: '', accent: '#ff5a1f', active: true, headline: '', subheadline: '', description: '', benefits: [], faq: [], images: [], video_url: '', compare_price: null,
     offers: [{ label: '1 article', qty: 1, price: 10000, badge: '' }, { label: '2 articles', qty: 2, price: 18000, badge: 'Meilleure offre' }] };
-  const offers = p.offers.map((o) => [o.label, o.qty, o.price, o.badge || ''].join(' | ')).join('\n');
+  const offerRow = (o) => `<div class="orow">
+      <div><label>Texte de l’offre</label><input class="o-l" value="${esc(o.label)}" placeholder="ex : 2 lots (6 lampes)"></div>
+      <div><label>Quantité</label><input class="o-q" type="number" min="1" value="${esc(o.qty)}"></div>
+      <div><label>💰 Prix de vente</label><input class="o-p" type="number" min="0" value="${esc(o.price)}" style="font-weight:700"></div>
+      <div><label>Badge <span class="help">(facultatif)</span></label><input class="o-b" value="${esc(o.badge || '')}" placeholder="ex : Meilleure offre"></div>
+      <button type="button" class="b light o-x" title="Supprimer cette offre">✕</button></div>`;
   const faq = p.faq.map((x) => `${x.q} | ${x.a}`).join('\n');
 
   shell('products', `<p><a href="#/produits">← Produits</a></p><h1>${isNew ? 'Nouveau produit' : esc(p.name)}</h1>
@@ -334,8 +339,10 @@ function renderProductForm(p) {
       <div><label style="font-weight:600"><input type="checkbox" name="active" ${p.active ? 'checked' : ''} style="width:auto"> Produit en ligne (visible et commandable)</label></div>
     </div></div>
     <div class="card"><h2>Prix et offres</h2><div class="fg">
-      <div><label>Offres <span class="help">— une par ligne : <code>Texte | Quantité | Prix | Badge (facultatif)</code></span></label><textarea name="offers" required>${esc(offers)}</textarea></div>
-      <div><label>Prix barré pour 1 unité <span class="help">— facultatif</span></label><input name="compare_price" type="number" min="0" value="${esc(p.compare_price ?? '')}"></div>
+      <p class="muted" style="margin:0">Le <b>prix de vente</b> est le prix que paie le client. La 1ère offre est le prix affiché en grand sur la page.</p>
+      <div id="offers">${p.offers.map(offerRow).join('')}</div>
+      <div><button type="button" class="b light" id="addOffer">+ Ajouter une offre</button></div>
+      <div style="border-top:1px solid #eee;padding-top:12px"><label>Ancien prix barré (avant promo), pour 1 unité <span class="help">— facultatif. Doit être <b>plus élevé</b> que le prix de vente, sinon il n’est pas affiché.</span></label><input name="compare_price" type="number" min="0" value="${esc(p.compare_price ?? '')}" placeholder="ex : 29900"></div>
     </div></div>
     <div class="card"><h2>Arguments et FAQ</h2><div class="fg">
       <div><label>Avantages <span class="help">— un par ligne</span></label><textarea name="benefits">${esc(p.benefits.join('\n'))}</textarea></div>
@@ -346,16 +353,24 @@ function renderProductForm(p) {
     </form>
     ${isNew ? '' : '<p style="margin-top:36px"><button class="b red" id="del">Supprimer le produit</button></p>'}`);
 
+  const offersBox = document.getElementById('offers');
+  offersBox.addEventListener('click', (e) => { if (e.target.classList.contains('o-x') && offersBox.children.length > 1) e.target.closest('.orow').remove(); });
+  document.getElementById('addOffer').onclick = () => offersBox.insertAdjacentHTML('beforeend', offerRow({ label: '', qty: 1, price: '', badge: '' }));
+
   document.getElementById('pf').onsubmit = async (e) => {
     e.preventDefault();
     const f = e.target, btn = f.querySelector('button.green');
     const lines = (t) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const offersArr = lines(f.offers.value).map((l) => {
-      const [label, qty, price, badge] = l.split('|').map((x) => (x || '').trim());
-      return { label, qty: Math.max(1, parseInt(qty, 10) || 1), price: Math.max(0, parseInt(String(price).replace(/\D/g, ''), 10) || 0), badge: badge || '' };
-    }).filter((o) => o.label);
-    if (!offersArr.length) return flash('Ajoutez au moins une offre.', true);
+    const offersArr = [...offersBox.querySelectorAll('.orow')].map((r) => ({
+      label: r.querySelector('.o-l').value.trim(),
+      qty: Math.max(1, parseInt(r.querySelector('.o-q').value, 10) || 1),
+      price: Math.max(0, parseInt(String(r.querySelector('.o-p').value).replace(/\D/g, ''), 10) || 0),
+      badge: r.querySelector('.o-b').value.trim(),
+    })).filter((o) => o.label);
+    if (!offersArr.length) return flash('Ajoutez au moins une offre avec un texte.', true);
+    if (offersArr.some((o) => !o.price)) return flash('Chaque offre doit avoir un prix de vente.', true);
     const cp = parseInt(f.compare_price.value, 10);
+    if (cp > 0 && cp <= offersArr[0].price) return flash(`L’ancien prix barré (${money(cp)}) doit être plus élevé que le prix de vente (${money(offersArr[0].price)}). Videz-le ou augmentez-le.`, true);
     const row = {
       name: f.name.value.trim(), slug: slugify(f.slug.value || f.name.value), headline: f.headline.value.trim(), subheadline: f.subheadline.value.trim(),
       description: f.description.value.trim(), accent: f.accent.value, active: f.active.checked, kind: f.kind.value,
