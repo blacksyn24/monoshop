@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Merci pour votre commande</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="topbar">🚚 Paiement à la livraison</div>
+<div class="wrap"><div class="box" id="box"><div class="spin"></div></div></div>
+<script src="/assets/config.js"></script>
+<script src="/assets/common.js"></script>
+<script>
+(function () {
+  var S = Shop, esc = S.esc, q = new URLSearchParams(location.search);
+  var box = document.getElementById('box');
+  Promise.all([
+    S.api('rpc/order_summary', { method: 'POST', body: { p_id: +q.get('id') || 0, p_token: q.get('t') || '00000000-0000-0000-0000-000000000000' } }),
+    S.settings(),
+  ]).then(function (r) {
+    var o = r[0], s = r[1];
+    document.title = 'Merci pour votre commande — ' + s.store_name;
+    if (!o) { box.innerHTML = '<h1>Commande introuvable</h1><p><a href="/">Retour à la boutique</a></p>'; return; }
+    document.documentElement.style.setProperty('--accent', o.accent);
+    var wa = S.waNumber(s.whatsapp);
+    box.innerHTML =
+      '<div style="font-size:56px">🎉</div>' +
+      '<h1>Merci ' + esc(o.first_name) + ' !</h1>' +
+      '<p>Votre commande <b>#' + o.id + '</b> est bien enregistrée.<br><b>Nous allons vous appeler très bientôt</b> au <b>' + esc(o.phone) + '</b> pour confirmer la livraison.</p>' +
+      '<div class="recap"><div><span>Produit</span><b>' + esc(o.product_name) + '</b></div><div><span>Offre</span><b>' + esc(o.offer_label) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
+      '<p style="color:#666;font-size:14px">Gardez votre téléphone allumé 📱 — sans confirmation, nous ne pouvons pas expédier.</p>' +
+      (wa ? '<a class="btn" style="background:#25d366;box-shadow:none" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Bonjour, je confirme ma commande #' + o.id + ' (' + o.product_name + ').') + '">Confirmer sur WhatsApp</a>' : '');
+    // Événement d'achat envoyé une seule fois par commande
+    var k = 'px_' + o.id, done = false;
+    try { done = sessionStorage.getItem(k); sessionStorage.setItem(k, '1'); } catch (e) {}
+    var ev = { value: o.total, currency: s.currency_code, content_name: o.product_name };
+    S.pixels(s, done ? null : ['Purchase', ev], done ? null : ['PlaceAnOrder', ev]);
+  }).catch(function () {
+    box.innerHTML = '<h1>Merci !</h1><p>Votre commande est enregistrée. Nous vous appelons très bientôt.</p>';
+  });
+})();
+</script>
+</body>
+</html>

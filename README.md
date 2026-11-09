@@ -1,23 +1,25 @@
-# Monoshop — sites monoproduit + dashboard + email
+# Monoshop — sites monoproduit (paiement à la livraison) + dashboard
 
-- Pages produit : `/p/<adresse-du-produit>` (paiement à la livraison)
-- Dashboard : `/admin` (mot de passe = `ADMIN_PASSWORD`)
-- Email à chaque commande via Resend (`RESEND_API_KEY`, `ORDER_EMAIL`)
+100 % gratuit : **Cloudflare Pages** (site) + **Supabase** (base de données, comptes, photos).
 
-## Variables d'environnement
-| Variable | Rôle |
+| Page | Adresse |
 |---|---|
-| `DATABASE_URL` | Base Postgres (fournie par Render) |
-| `ADMIN_PASSWORD` | Mot de passe du dashboard |
-| `SESSION_SECRET` | Généré automatiquement par Render |
-| `RESEND_API_KEY` | Clé API Resend (resend.com) |
-| `ORDER_EMAIL` | Email qui reçoit les commandes (plusieurs : séparés par des virgules) |
-| `EMAIL_FROM` | Facultatif : expéditeur avec votre domaine vérifié sur Resend |
-| `PUBLIC_URL` | URL du site (ex : https://monoshop.onrender.com), pour le lien dans l'email |
-| `TIMEZONE` | Fuseau horaire du dashboard (par défaut Africa/Abidjan) |
+| Accueil / liste des produits | `/` |
+| Page produit | `/p/<adresse-du-produit>` |
+| Remerciement après commande | `/merci` |
+| Dashboard (commandes, produits, paramètres) | `/admin/` |
 
-## En local
-```
-npm install
-DATABASE_URL=postgresql://... ADMIN_PASSWORD=... npm start
-```
+## Mise en ligne sur Cloudflare Pages
+- Framework preset : **None**
+- Build command : *(vide)*
+- Build output directory : **`public`**
+
+## Base de données
+- Projet Supabase : `vijmvynnantcsevwqswr` (clés publiques dans `public/assets/config.js`)
+- Schéma : `supabase/migrations/`
+- Sécurité : les visiteurs peuvent seulement lire les produits actifs et passer commande (prix calculé par la base).
+  Seul le compte administrateur voit et modifie les commandes.
+- Le **premier compte créé** sur `/admin/` devient l'administrateur.
+
+## Base toujours active
+`.github/workflows/keepalive.yml` interroge la base chaque jour pour éviter la mise en pause du plan gratuit Supabase (pause après 7 jours sans activité).

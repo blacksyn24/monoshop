@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boutique</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="topbar">🚚 Paiement à la livraison</div>
+<header class="brand"><div class="wrap"><b id="store">&nbsp;</b><span id="delivery"></span></div></header>
+<main class="wrap"><div class="grid" id="grid"><div class="loading"><div class="spin"></div></div></div></main>
+<script src="/assets/config.js"></script>
+<script src="/assets/common.js"></script>
+<script>
+(function () {
+  var S = Shop, esc = S.esc;
+  Promise.all([S.api('products?select=slug,name,images&active=eq.true&order=id'), S.settings()]).then(function (r) {
+    var ps = r[0] || [], s = r[1];
+    if (ps.length === 1) { location.replace('/p/' + ps[0].slug); return; }
+    document.title = s.store_name;
+    document.getElementById('store').textContent = s.store_name;
+    document.getElementById('delivery').textContent = s.delivery_text;
+    document.getElementById('grid').innerHTML = ps.map(function (p) {
+      return '<a href="/p/' + esc(p.slug) + '"><div class="im">' + (p.images && p.images[0] ? '<img src="' + esc(p.images[0]) + '" alt="">' : '🛍️') + '</div><b>' + esc(p.name) + '</b></a>';
+    }).join('') || '<p>Bientôt disponible.</p>';
+  }).catch(function () { document.getElementById('grid').innerHTML = '<p>Connexion impossible. <a href="">Réessayer</a></p>'; });
+})();
+</script>
+</body>
+</html>
