@@ -154,7 +154,7 @@ function shell(view, html) {
   currentView = view;
   const link = (h, k, l) => `<a href="${h}" class="${view === k ? 'on' : ''}">${l}</a>`;
   root.innerHTML = `<nav><div class="in"><b>📦 ${esc(state.settings.store_name)}</b>
-    ${link('#/', 'orders', 'Commandes<span id="cnt"></span>')}${link('#/produits', 'products', 'Produits')}${link('#/parametres', 'settings', 'Paramètres')}
+    ${link('#/', 'orders', 'Commandes<span id="cnt"></span>')}${link('#/prix', 'prices', '💰 Prix')}${link('#/produits', 'products', 'Produits')}${link('#/parametres', 'settings', 'Paramètres')}
     <span class="sp"></span><a href="/" target="_blank">Voir le site ↗</a><a href="#" id="lo">Quitter</a></div></nav><main>${html}</main>`;
   document.getElementById('lo').onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); location.hash = ''; location.reload(); };
   updateNav();
@@ -170,6 +170,7 @@ async function route() {
   if (h === 'produit/nouveau') return renderProductForm(null);
   if (h.startsWith('produit/')) { await loadProducts(); return renderProductForm(state.products.find((p) => String(p.id) === h.split('/')[1])); }
   if (h === 'parametres') return renderSettings();
+  if (h === 'prix') { await loadProducts(); return renderPrices(); }
   await loadOrders();
   renderOrders();
 }
@@ -440,6 +441,48 @@ async function resizeImage(file, max = 1400) {
   c.width = Math.round(bmp.width * r); c.height = Math.round(bmp.height * r);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('conversion impossible'))), 'image/jpeg', 0.85));
+}
+
+// ---------------- Tous les prix sur un écran ----------------
+function renderPrices() {
+  const cards = state.products.map((p) => {
+    const low = p.compare_price && p.offers[0] && p.compare_price <= p.offers[0].price;
+    return `<div class="card prow" data-id="${p.id}">
+      <h2 style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${esc(p.name)}</span>
+        <span class="muted" style="font-weight:400">${p.active ? '🟢 En ligne' : '⚪ Hors ligne'} · <a href="/p/${esc(p.slug)}" target="_blank">Voir ↗</a></span></h2>
+      ${p.offers.map((o, i) => `<div class="pline"><span>${esc(o.label)}</span>
+        <label class="pin"><input type="number" min="1" class="pp" data-i="${i}" value="${esc(o.price)}"> ${esc(state.settings.currency || '')}</label></div>`).join('')}
+      <div class="pline" style="border-top:1px dashed #e4e4e7;margin-top:6px;padding-top:10px"><span class="muted">Ancien prix barré (1 unité) — facultatif, doit être plus élevé${low ? ' <b style="color:#dc2626">⚠️ actuellement trop bas, il ne s’affiche pas</b>' : ''}</span>
+        <label class="pin"><input type="number" min="0" class="pc" value="${esc(p.compare_price ?? '')}" placeholder="aucun"> ${esc(state.settings.currency || '')}</label></div>
+    </div>`;
+  }).join('');
+  shell('prices', `<h1>💰 Tous les prix</h1>
+    <p class="muted">Changez les prix de vente de toutes vos offres ici, puis cliquez sur Enregistrer. Les pages du site sont mises à jour immédiatement.
+    Pour changer le <b>texte</b> d’une offre ou en ajouter une, allez dans Produits → Modifier.</p>
+    ${cards || '<div class="card">Aucun produit.</div>'}
+    <div style="position:sticky;bottom:0;background:#f4f4f5;padding:12px 0"><button class="b green" id="saveP" style="padding:12px 22px">💾 Enregistrer tous les prix</button></div>`);
+
+  document.getElementById('saveP').onclick = async (e) => {
+    const btn = e.target, updates = [];
+    for (const card of root.querySelectorAll('.prow')) {
+      const p = state.products.find((x) => String(x.id) === card.dataset.id);
+      const offers = p.offers.map((o, i) => ({ ...o, price: parseInt(card.querySelector(`.pp[data-i="${i}"]`).value, 10) || 0 }));
+      const cp = parseInt(card.querySelector('.pc').value, 10) || null;
+      if (offers.some((o) => o.price <= 0)) return flash(`« ${p.name} » : chaque offre doit avoir un prix.`, true);
+      if (cp && cp <= offers[0].price) return flash(`« ${p.name} » : l’ancien prix barré (${money(cp)}) doit être plus élevé que le prix de vente (${money(offers[0].price)}). Videz-le ou augmentez-le.`, true);
+      const changed = JSON.stringify(offers) !== JSON.stringify(p.offers) || (cp || null) !== (p.compare_price || null);
+      if (changed) updates.push(sb.from('products').update({ offers, compare_price: cp }).eq('id', p.id));
+    }
+    if (!updates.length) return flash('Aucun prix modifié.');
+    btn.disabled = true;
+    const res = await Promise.all(updates);
+    btn.disabled = false;
+    const err = res.find((r) => r.error);
+    if (err) return flash('Erreur : ' + err.error.message, true);
+    flash(`${updates.length} produit(s) mis à jour ✅`);
+    await loadProducts();
+    renderPrices();
+  };
 }
 
 // ---------------- Paramètres ----------------
