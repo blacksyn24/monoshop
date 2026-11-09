@@ -1,0 +1,16 @@
+{
+  "name": "monoshop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sites monoproduit avec paiement à la livraison, dashboard et notification email",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.1"
+  }
+}

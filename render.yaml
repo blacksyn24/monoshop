@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: monoshop
+    runtime: node
+    plan: free            # passer à "starter" (7 $/mois) au lancement pour éviter la mise en veille
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: monoshop-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ORDER_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: TIMEZONE
+        value: Africa/Abidjan
+
+databases:
+  - name: monoshop-db
+    plan: free            # passer à "basic-256mb" au lancement (la base gratuite expire après 30 jours)
+    region: frankfurt
+    databaseName: monoshop
