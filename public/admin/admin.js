@@ -14,6 +14,7 @@ const STATUSES = [
   { key: 'retour', label: 'Refusée / retour', color: '#dc2626' },
   { key: 'annulee', label: 'Annulée', color: '#6b7280' },
 ];
+const unitPrice = (p) => (Number(p.price) > 0 ? Number(p.price) : p.offers && p.offers[0] ? Math.round(p.offers[0].price / (p.offers[0].qty || 1)) : 0);
 const statusOf = (k) => STATUSES.find((s) => s.key === k) || STATUSES[0];
 const SETTING_KEYS = ['store_name', 'country', 'currency', 'currency_code', 'phone_prefix', 'whatsapp', 'delivery_text', 'fb_pixel_id', 'tiktok_pixel_id'];
 
@@ -229,7 +230,7 @@ function renderOrders() {
       <td data-l="Livraison">${esc(o.city)}<div class="muted">${esc(o.address)}</div>${o.note ? `<div class="muted">📝 ${esc(o.note)}</div>` : ''}</td>
       <td data-l="Produit">${esc(o.product_name)}<div class="muted">${esc(o.offer_label)}</div>${isSvc ? `<div class="muted">🏫 ${esc(ex.ecole || '')}${ex.niveau ? ' · ' + esc(ex.niveau) : ''}</div><div class="muted">📘 ${esc(ex.theme || '')}</div>` : ''}${soutenanceInfo(o)}</td>
       <td data-l="Total"><b>${money(o.total)}</b></td>
-      <td data-l="Statut"><select class="st" data-id="${o.id}" style="color:${s.color}">${STATUSES.map((x) => opt(x.key, o.status, x.label)).join('')}</select></td>
+      <td data-l="Statut"><div class="st-row"><select class="st" data-id="${o.id}" style="color:${s.color}">${STATUSES.map((x) => opt(x.key, o.status, x.label)).join('')}</select><button type="button" class="del-o" data-id="${o.id}" title="Supprimer la commande" aria-label="Supprimer la commande">🗑️</button></div></td>
     </tr>`;
   }).join('');
 
@@ -267,6 +268,17 @@ function renderOrders() {
   document.getElementById('csv').onclick = () => exportCsv(list);
   const nb = document.getElementById('notif');
   if (nb) nb.onclick = async () => { await Notification.requestPermission(); if (!audioCtx && window.AudioContext) audioCtx = new AudioContext(); renderOrders(); };
+  root.querySelectorAll('.del-o').forEach((btn) => {
+    btn.onclick = async () => {
+      const id = Number(btn.dataset.id);
+      btn.disabled = true;
+      const { error } = await sb.from('orders').delete().eq('id', id);
+      if (error) { btn.disabled = false; return flash('Erreur : ' + error.message, true); }
+      state.orders = state.orders.filter((x) => x.id !== id);
+      flash(`Commande #${id} supprimée`);
+      renderOrders();
+    };
+  });
   root.querySelectorAll('select.st').forEach((sel) => {
     sel.onchange = async () => {
       const id = Number(sel.dataset.id), status = sel.value;
@@ -302,7 +314,7 @@ async function renderProducts() {
     <table><thead><tr><th>Produit</th><th>Prix</th><th>Commandes</th><th>Statut</th><th></th></tr></thead><tbody>
     ${state.products.map((p) => `<tr>
       <td data-l="Produit"><b>${esc(p.name)}</b><div class="muted">/p/${esc(p.slug)}</div></td>
-      <td data-l="Prix">${p.offers[0] ? money(p.offers[0].price) : '—'}</td>
+      <td data-l="Prix">${unitPrice(p) ? money(unitPrice(p)) : '—'}</td>
       <td data-l="Commandes">${counts[p.id] || 0}</td>
       <td data-l="Statut">${p.active ? '<span class="pill" style="background:#16a34a">En ligne</span>' : '<span class="pill" style="background:#71717a">Hors ligne</span>'}</td>
       <td><a href="#/produit/${p.id}">Modifier</a> · <a href="/p/${esc(p.slug)}" target="_blank">Voir ↗</a></td></tr>`).join('')}
@@ -312,13 +324,7 @@ async function renderProducts() {
 function renderProductForm(p) {
   const isNew = !p;
   p = p || { kind: 'physique', name: '', slug: '', accent: '#ff5a1f', active: true, headline: '', subheadline: '', description: '', benefits: [], faq: [], images: [], video_url: '', compare_price: null,
-    offers: [{ label: '1 article', qty: 1, price: 10000, badge: '' }, { label: '2 articles', qty: 2, price: 18000, badge: 'Meilleure offre' }] };
-  const offerRow = (o) => `<div class="orow">
-      <div><label>Texte de l’offre</label><input class="o-l" value="${esc(o.label)}" placeholder="ex : 2 lots (6 lampes)"></div>
-      <div><label>Quantité</label><input class="o-q" type="number" min="1" value="${esc(o.qty)}"></div>
-      <div><label>💰 Prix de vente</label><input class="o-p" type="number" min="0" value="${esc(o.price)}" style="font-weight:700"></div>
-      <div><label>Badge <span class="help">(facultatif)</span></label><input class="o-b" value="${esc(o.badge || '')}" placeholder="ex : Meilleure offre"></div>
-      <button type="button" class="b light o-x" title="Supprimer cette offre">✕</button></div>`;
+    price: 10000 };
   const faq = p.faq.map((x) => `${x.q} | ${x.a}`).join('\n');
 
   shell('products', `<p><a href="#/produits">← Produits</a></p><h1>${isNew ? 'Nouveau produit' : esc(p.name)}</h1>
@@ -339,11 +345,8 @@ function renderProductForm(p) {
       <div><label>Lien vidéo MP4 <span class="help">(facultatif)</span></label><input name="video_url" value="${esc(p.video_url)}" placeholder="https://…/video.mp4"></div>
       <div><label style="font-weight:600"><input type="checkbox" name="active" ${p.active ? 'checked' : ''} style="width:auto"> Produit en ligne (visible et commandable)</label></div>
     </div></div>
-    <div class="card"><h2>Prix et offres</h2><div class="fg">
-      <p class="muted" style="margin:0">Le <b>prix de vente</b> est le prix que paie le client. La 1ère offre est le prix affiché en grand sur la page.</p>
-      <div id="offers">${p.offers.map(offerRow).join('')}</div>
-      <div><button type="button" class="b light" id="addOffer">+ Ajouter une offre</button></div>
-      <div style="border-top:1px solid #eee;padding-top:12px"><label>Ancien prix barré (avant promo), pour 1 unité <span class="help">— facultatif. Doit être <b>plus élevé</b> que le prix de vente, sinon il n’est pas affiché.</span></label><input name="compare_price" type="number" min="0" value="${esc(p.compare_price ?? '')}" placeholder="ex : 29900"></div>
+    <div class="card"><h2>Prix</h2><div class="fg two">
+      <div><label>💰 Prix de vente <span class="help">— le client choisit lui-même la quantité</span></label><input name="price" type="number" min="1" required value="${esc(unitPrice(p) || '')}" style="font-weight:700;font-size:17px"></div>
     </div></div>
     <div class="card"><h2>Arguments et FAQ</h2><div class="fg">
       <div><label>Avantages <span class="help">— un par ligne</span></label><textarea name="benefits">${esc(p.benefits.join('\n'))}</textarea></div>
@@ -354,31 +357,18 @@ function renderProductForm(p) {
     </form>
     ${isNew ? '' : '<p style="margin-top:36px"><button class="b red" id="del">Supprimer le produit</button></p>'}`);
 
-  const offersBox = document.getElementById('offers');
-  offersBox.addEventListener('click', (e) => { if (e.target.classList.contains('o-x') && offersBox.children.length > 1) e.target.closest('.orow').remove(); });
-  document.getElementById('addOffer').onclick = () => offersBox.insertAdjacentHTML('beforeend', offerRow({ label: '', qty: 1, price: '', badge: '' }));
-
   document.getElementById('pf').onsubmit = async (e) => {
     e.preventDefault();
     const f = e.target, btn = f.querySelector('button.green');
     const lines = (t) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const offersArr = [...offersBox.querySelectorAll('.orow')].map((r) => ({
-      label: r.querySelector('.o-l').value.trim(),
-      qty: Math.max(1, parseInt(r.querySelector('.o-q').value, 10) || 1),
-      price: Math.max(0, parseInt(String(r.querySelector('.o-p').value).replace(/\D/g, ''), 10) || 0),
-      badge: r.querySelector('.o-b').value.trim(),
-    })).filter((o) => o.label);
-    if (!offersArr.length) return flash('Ajoutez au moins une offre avec un texte.', true);
-    if (offersArr.some((o) => !o.price)) return flash('Chaque offre doit avoir un prix de vente.', true);
-    const cp = parseInt(f.compare_price.value, 10);
-    if (cp > 0 && cp <= offersArr[0].price) return flash(`L’ancien prix barré (${money(cp)}) doit être plus élevé que le prix de vente (${money(offersArr[0].price)}). Videz-le ou augmentez-le.`, true);
+    const price = Math.max(0, parseInt(String(f.price.value).replace(/\D/g, ''), 10) || 0);
+    if (!price) return flash('Indiquez un prix de vente.', true);
     const row = {
       name: f.name.value.trim(), slug: slugify(f.slug.value || f.name.value), headline: f.headline.value.trim(), subheadline: f.subheadline.value.trim(),
       description: f.description.value.trim(), accent: f.accent.value, active: f.active.checked, kind: f.kind.value,
       video_url: /^https?:\/\//.test(f.video_url.value.trim()) ? f.video_url.value.trim() : '',
-      offers: offersArr, benefits: lines(f.benefits.value),
+      price, compare_price: null, benefits: lines(f.benefits.value),
       faq: lines(f.faq.value).map((l) => { const i = l.indexOf('|'); return i > 0 ? { q: l.slice(0, i).trim(), a: l.slice(i + 1).trim() } : null; }).filter(Boolean),
-      compare_price: cp > 0 ? cp : null,
     };
     btn.disabled = true;
     const res = isNew ? await sb.from('products').insert(row).select().single() : await sb.from('products').update(row).eq('id', p.id).select().single();
@@ -446,19 +436,15 @@ async function resizeImage(file, max = 1400) {
 // ---------------- Tous les prix sur un écran ----------------
 function renderPrices() {
   const cards = state.products.map((p) => {
-    const low = p.compare_price && p.offers[0] && p.compare_price <= p.offers[0].price;
     return `<div class="card prow" data-id="${p.id}">
       <h2 style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${esc(p.name)}</span>
         <span class="muted" style="font-weight:400">${p.active ? '🟢 En ligne' : '⚪ Hors ligne'} · <a href="/p/${esc(p.slug)}" target="_blank">Voir ↗</a></span></h2>
-      ${p.offers.map((o, i) => `<div class="pline"><span>${esc(o.label)}${i === 0 ? '<br><b style="color:#2563eb;font-size:12.5px">⬆ prix affiché en grand sur la page</b>' : ''}</span>
-        <label class="pin"><input type="number" min="1" class="pp" data-i="${i}" value="${esc(o.price)}"> ${esc(state.settings.currency || '')}</label></div>`).join('')}
-      <div class="pline" style="border-top:1px dashed #e4e4e7;margin-top:6px;padding-top:10px"><span class="muted">Ancien prix barré (1 unité) — facultatif, doit être plus élevé${low ? ' <b style="color:#dc2626">⚠️ actuellement trop bas, il ne s’affiche pas</b>' : ''}</span>
-        <label class="pin"><input type="number" min="0" class="pc" value="${esc(p.compare_price ?? '')}" placeholder="aucun"> ${esc(state.settings.currency || '')}</label></div>
+      <div class="pline"><span><b>Prix de vente</b><br><span class="muted">Le client choisit la quantité, le total se calcule tout seul.</span></span>
+        <label class="pin"><input type="number" min="1" class="pp" value="${esc(unitPrice(p))}"> ${esc(state.settings.currency || '')}</label></div>
     </div>`;
   }).join('');
   shell('prices', `<h1>💰 Tous les prix</h1>
-    <p class="muted">Changez les prix de vente de toutes vos offres ici, puis cliquez sur Enregistrer. Les pages du site sont mises à jour immédiatement.
-    Pour changer le <b>texte</b> d’une offre ou en ajouter une, allez dans Produits → Modifier.</p>
+    <p class="muted">Un seul prix par produit : le client choisit lui-même la quantité. Changez les prix ici, puis cliquez sur Enregistrer. Les pages du site sont mises à jour immédiatement.</p>
     ${cards || '<div class="card">Aucun produit.</div>'}
     <div style="position:sticky;bottom:0;background:#f4f4f5;padding:12px 0"><button class="b green" id="saveP" style="padding:12px 22px">💾 Enregistrer tous les prix</button></div>`);
 
@@ -466,12 +452,9 @@ function renderPrices() {
     const btn = e.target, updates = [];
     for (const card of root.querySelectorAll('.prow')) {
       const p = state.products.find((x) => String(x.id) === card.dataset.id);
-      const offers = p.offers.map((o, i) => ({ ...o, price: parseInt(card.querySelector(`.pp[data-i="${i}"]`).value, 10) || 0 }));
-      const cp = parseInt(card.querySelector('.pc').value, 10) || null;
-      if (offers.some((o) => o.price <= 0)) return flash(`« ${p.name} » : chaque offre doit avoir un prix.`, true);
-      if (cp && cp <= offers[0].price) return flash(`« ${p.name} » : l’ancien prix barré (${money(cp)}) doit être plus élevé que le prix de vente (${money(offers[0].price)}). Videz-le ou augmentez-le.`, true);
-      const changed = JSON.stringify(offers) !== JSON.stringify(p.offers) || (cp || null) !== (p.compare_price || null);
-      if (changed) updates.push(sb.from('products').update({ offers, compare_price: cp }).eq('id', p.id));
+      const price = parseInt(card.querySelector('.pp').value, 10) || 0;
+      if (price <= 0) return flash(`« ${p.name} » : indiquez un prix de vente.`, true);
+      if (price !== unitPrice(p)) updates.push(sb.from('products').update({ price, compare_price: null }).eq('id', p.id));
     }
     if (!updates.length) return flash('Aucun prix modifié.');
     btn.disabled = true;

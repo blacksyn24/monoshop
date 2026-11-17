@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Merci pour votre commande</title>
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/site.css?v=1794908735">
 </head>
 <body>
 <div class="topbar">🚚 Paiement à la livraison</div>
 <div class="wrap"><div class="box" id="box"><div class="spin"></div></div></div>
-<script src="/assets/config.js"></script>
-<script src="/assets/common.js"></script>
+<script src="/assets/config.js?v=1794908735"></script>
+<script src="/assets/common.js?v=1794908735"></script>
 <script>
 (function () {
   var S = Shop, esc = S.esc, q = new URLSearchParams(location.search);
@@ -30,14 +30,14 @@
         '<div style="font-size:56px">🎓</div>' +
         '<h1>Merci ' + esc(o.first_name) + ' !</h1>' +
         '<p>Votre commande <b>#' + o.id + '</b> est bien enregistrée.</p>' +
-        '<div class="recap"><div><span>Service</span><b>' + esc(o.product_name) + '</b></div><div><span>Formule</span><b>' + esc(o.offer_label) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
+        '<div class="recap"><div><span>Service</span><b>' + esc(o.product_name) + '</b></div><div><span>Quantité</span><b>' + esc(String(o.offer_label).replace(/^Quantité : /, '')) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
         '<p><b>Étape suivante : envoyez-nous votre mémoire (Word ou PDF) sur WhatsApp</b> en indiquant votre numéro de commande <b>#' + o.id + '</b>.</p>' +
         (wa ? '<a class="btn" style="background:#25d366;box-shadow:none" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Bonjour, voici mon mémoire pour la commande #' + o.id + ' (' + o.offer_label + ').') + '">📎 Envoyer mon mémoire sur WhatsApp</a>' : '<p>Nous vous contactons très vite sur WhatsApp au <b>' + esc(o.phone) + '</b>.</p>');
     } else box.innerHTML =
       '<div style="font-size:56px">🎉</div>' +
       '<h1>Merci ' + esc(o.first_name) + ' !</h1>' +
       '<p>Votre commande <b>#' + o.id + '</b> est bien enregistrée.<br><b>Nous allons vous appeler très bientôt</b> au <b>' + esc(o.phone) + '</b> pour confirmer la livraison.</p>' +
-      '<div class="recap"><div><span>Produit</span><b>' + esc(o.product_name) + '</b></div><div><span>Offre</span><b>' + esc(o.offer_label) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
+      '<div class="recap"><div><span>Produit</span><b>' + esc(o.product_name) + '</b></div><div><span>Quantité</span><b>' + esc(String(o.offer_label).replace(/^Quantité : /, '')) + '</b></div><div><span>À payer à la livraison</span><b>' + S.money(o.total, s.currency) + '</b></div></div>' +
       '<p style="color:#666;font-size:14px">Gardez votre téléphone allumé 📱 — sans confirmation, nous ne pouvons pas expédier.</p>' +
       (wa ? '<a class="btn" style="background:#25d366;box-shadow:none" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Bonjour, je confirme ma commande #' + o.id + ' (' + o.product_name + ').') + '">Confirmer sur WhatsApp</a>' : '');
     // Événement d'achat envoyé une seule fois par commande

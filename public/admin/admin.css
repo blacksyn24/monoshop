@@ -74,3 +74,7 @@ tr.new td:first-child{box-shadow:inset 4px 0 #2563eb}
 .pline>span{flex:1}
 .pin{display:flex;align-items:center;gap:6px;white-space:nowrap;font-weight:600}
 .pin input{width:130px;padding:9px 10px;border:1px solid #d4d4d8;border-radius:8px;font-weight:700;font-size:15px;text-align:right}
+
+.st-row{display:flex;align-items:center;gap:6px}
+.del-o{flex:none;width:36px;height:36px;border-radius:8px;border:1px solid #fecaca;background:#fff;font-size:17px;line-height:1;cursor:pointer;padding:0}
+.del-o:hover{background:#fee2e2;border-color:#f87171}.del-o:disabled{opacity:.5;cursor:wait}
